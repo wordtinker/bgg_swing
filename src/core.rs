@@ -88,7 +88,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
         Ok(g) => g
     };
     // if game is None, there is no more unstable games
-    let game = match game {
+    let mut game = match game {
         None => {
             tx.send(Message::Stabilized).unwrap();
             return;
@@ -129,8 +129,10 @@ fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
         }
     }
     // every user was stable
-    // save average
-    match conn.update_game(&game, avg.result()) {
+    // save average and number of users
+    game.rating = avg.result();
+    game.votes = avg.n();
+    match conn.update_game(&game) {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
             return;
@@ -274,18 +276,21 @@ impl RegulationToken {
 
 struct Avg {
     n: u32,
-    val: f32
+    val: f64
 }
 
-impl Avg { // TODO: test
+impl Avg {
     fn new() -> Avg {
         Avg {n: 0, val: 0.0}
     }
-    fn add(&mut self, nmbr: f32) -> () {
+    fn add(&mut self, nmbr: f64) -> () {
         self.n += 1;
-        self.val = (nmbr + (self.n - 1) as f32 * self.val) / self.n as f32;
+        self.val = (nmbr + (self.n - 1) as f64 * self.val) / self.n as f64;
     }
-    fn result(&self) -> f32 {
+    fn result(&self) -> f64 {
         self.val
+    }
+    fn n(&self) -> u32 {
+        self.n
     }
 }

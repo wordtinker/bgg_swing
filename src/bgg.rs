@@ -4,6 +4,68 @@ use select::document::Document;
 use select::predicate::{Name, Class};
 use crate::lib::{Game, User};
 
+struct UserIterator {
+    game_id: u32,
+    page_size: u32,
+    page: u32
+}
+
+impl UserIterator {
+    fn new(game_id: u32) -> UserIterator {
+        UserIterator {game_id, page: 0 , page_size: 100}
+    }
+}
+
+impl Iterator for UserIterator {
+    type Item = Result<Vec<(User, f64)>, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.page += 1;
+        // get users for a game
+        match get_users_from(self.game_id, self.page, self.page_size) {
+            Ok(users) => {
+                if users.is_empty() {
+                    None
+                } else {
+                    Some(Ok(users))
+                }
+            },
+            Err(e) => Some(Err(e))
+        }
+    }
+}
+
+fn get_users_from(game_id: u32, page: u32, page_size: u32) -> Result<Vec<(User, f64)>, Error> {
+    let url =  format!(
+        "https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&id={}&ratingcomments=1&page={}&pagesize={}",
+        game_id,
+        page,
+        page_size
+    );
+    let resp = reqwest::get(&url)
+        .with_context(|_| format!("could not download page `{}`", url))?;
+    let doc = Document::from_read(resp)?;
+    filter_users(doc)
+}
+
+fn filter_users(doc: Document) -> Result<Vec<(User, f64)>, Error> {
+    let usertags = doc.find(Name("comment"));
+
+    let mut users = Vec::new();
+    for tag in usertags {
+        let name = match tag.attr("username") {
+            Some(n) => String::from(n),
+            _ => bail!("Can't parse username in the user list")
+        };
+        let rating = match tag.attr("rating") {
+            Some(r) => r.parse::<f64>()?,
+            _ => bail!("Can't parse user rating in the user list")
+        };
+        users.push((name, rating));
+    }
+    Ok(users)
+}
+
 struct GameIterator {
     page: u32,
     user_limit: u32,
@@ -46,7 +108,7 @@ fn get_games_from(page: u32, user_limit: u32) -> Result<Vec<Game>, Error> {
         .with_context(|_| format!("could not download page `{}`", url))?;
     let doc = Document::from_read(resp)?;
     filter_games(doc)
-    }
+}
 
 fn filter_games(doc: Document) -> Result<Vec<Game>, Error> {
     let links = doc
@@ -79,17 +141,13 @@ fn href_to_id(href: &str) -> Result<u32, Error> {
 
 
 pub fn pull_games(user_limit: u32) -> impl Iterator<Item=Result<Vec<Game>, Error>> {
-        GameIterator::new(user_limit)
+    GameIterator::new(user_limit)
 }
 
 pub fn get_user_average_rating(user: &User) -> Result<f32, Error> {
     Ok(7.5) // TODO: stub
 }
 
-pub fn get_user_ratings(game: &Game) -> impl Iterator<Item=Result<Vec<(User, f32)>, Error>> {
-    let mut x: Vec<Result<Vec<(User, f32)>, Error>> = Vec::new();
-    let err = failure::format_err!("Error!!!");
-    x.push(Err(err));
-    x.into_iter()
-    // bail!("Non Implmented") // TODO: stub
+pub fn get_user_ratings(game: &Game) -> impl Iterator<Item=Result<Vec<(User, f64)>, Error>> {
+    UserIterator::new(game.id)
 }

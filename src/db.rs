@@ -14,6 +14,7 @@ pub fn initialize() -> Result<(), Error> {
             id integer primary key,
             name text not null,
             rating real,
+            num_votes integer,
             updated datetime,
             stable integer
          )",
@@ -21,7 +22,7 @@ pub fn initialize() -> Result<(), Error> {
     )?;
     conn.execute(
         "create table if not exists users (
-            id integer primary key,
+            name text primary key,
             updated datetime,
             stable integer,
             trusted integer
@@ -59,12 +60,13 @@ pub fn is_stable() -> Result<bool, Error> {
 
 pub fn get_all_games() -> Result<Vec<Game>, Error> {
     let conn = Connection::open(DB_FILE_NAME)?;
-    let mut stmt = conn.prepare("SELECT id, name, rating FROM games order by rating desc")?;
+    let mut stmt = conn.prepare("SELECT id, name, rating, num_votes FROM games order by rating desc")?;
     let games_iter = stmt
         .query_map(NO_PARAMS, |row| Game {
             id: row.get(0),
             name: row.get(1),
             rating: row.get(2),
+            votes: row.get(3)
         })?;
     let mut games = Vec::new();
     for game in games_iter {
@@ -87,7 +89,6 @@ impl DbConn {
     }
 
     pub fn get_unstable_user(&self) -> Result<Option<User>, Error> {
-        return Ok(Some(2584));
         Ok(None) // TODO: stub
     }
 
@@ -113,10 +114,10 @@ impl DbConn {
         // None - unstable
         // Some(true) - trusted
         // Some(false) - not trusted
-        Ok(None) // TODO Stub
+        Ok(Some(true)) // TODO Stub
     }
 
-    pub fn update_game(&self, game: &Game, rating: f32) -> Result<(), Error> {
+    pub fn update_game(&self, game: &Game) -> Result<(), Error> {
         Ok(()) // TODO: stub
     }
 }
