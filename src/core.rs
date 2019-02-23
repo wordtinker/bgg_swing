@@ -140,6 +140,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
 }
 
 fn stabilize_users(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut RegulationToken) -> () {
+    thread::sleep(Duration::from_millis(1000)); //TODO: temp
     let user = match conn.get_unstable_user() {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
@@ -232,6 +233,7 @@ impl Config {
     }
 }
 
+#[derive(Debug)]
 pub enum Message {
     Err(Error),
     Stabilized,

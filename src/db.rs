@@ -1,4 +1,4 @@
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Connection, NO_PARAMS, OpenFlags};
 use rusqlite::types::ToSql;
 use failure::{Error, ResultExt, bail};
 use chrono::Local;
@@ -79,7 +79,10 @@ pub struct DbConn {
 
 impl DbConn {
     pub fn new() -> Result<DbConn, Error> {
-        let conn = Connection::open(DB_FILE_NAME)?; // TODO: thread option
+        let conn = Connection::open_with_flags(
+            DB_FILE_NAME,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX // for multi thread
+            )?;
         Ok(DbConn { conn })
     }
 
@@ -93,8 +96,13 @@ impl DbConn {
     }
 
     pub fn get_unstable_game(&self) -> Result<Option<Game>, Error> {
-        Ok(Some(Game::new(123, "Test game".to_string())))
-        // Ok(None) // TODO stub
+        let mut stmt = self.conn.prepare("select id, name from games where not stable order by random() limit 1")?;
+        let game: Option<Game> = match stmt.query_row(NO_PARAMS, |r| Game::new(r.get(0), r.get(1))) {
+            Ok(g) => Some(g),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => bail!(e)
+        };
+        Ok(game) 
     }
 
     pub fn add_users(&self, users: &[&User]) -> Result<(), Error> {
