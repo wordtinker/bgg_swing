@@ -51,8 +51,8 @@ fn trust(rating: f32) -> bool {
 }
 
 fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
-            continuation: impl Fn(&Sender<Message>, &db::DbConn, &mut RegulationToken) -> ()) -> () {
-    let conn = match db::DbConn::new() {
+            continuation: impl Fn(&Sender<Message>, &mut db::DbConn, &mut RegulationToken) -> ()) -> () {
+    let mut conn = match db::DbConn::new() {
             Err(e) => {
                 tx.send(Message::Err(e)).unwrap();
                 return;
@@ -75,11 +75,11 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
             break;
         }
         thread::sleep(tkn.delay());
-        continuation(&tx, &conn, &mut tkn);
+        continuation(&tx, &mut conn, &mut tkn);
     }
 }
 
-fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut RegulationToken) -> () {
+fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut RegulationToken) -> () {
     let game = match conn.get_unstable_game() {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
@@ -141,7 +141,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
     };
 }
 
-fn stabilize_users(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut RegulationToken) -> () {
+fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut RegulationToken) -> () {
     thread::sleep(Duration::from_millis(1000)); //TODO: temp
     let user = match conn.get_unstable_user() {
         Err(e) => {

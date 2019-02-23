@@ -106,8 +106,16 @@ impl DbConn {
         Ok(game) 
     }
 
-    pub fn add_users(&self, users: &[&User]) -> Result<(), Error> {
-        Ok(()) // TODO: stub
+    pub fn add_users(&mut self, users: &[&User]) -> Result<(), Error> {
+        let tx = self.conn.transaction()?;
+        let now = Local::now();
+        let zero = 0;
+        for user in users {
+            tx.execute("insert or ignore into users (name, updated, stable, trusted) values (?1, ?2, ?3, ?4)",
+                &[user as &ToSql, &now.to_string(), &zero, &zero])?;
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     pub fn check_user(&self, user: User) -> Result<Option<bool>, Error> {
