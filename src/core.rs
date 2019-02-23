@@ -1,7 +1,7 @@
 use crate::db;
 use crate::bgg;
 use crate::lib::{Game, User};
-use failure::{Error, ResultExt, ensure, bail};
+use failure::{Error, ResultExt, ensure};
 use std::fs;
 use serde_json::{from_str, to_string_pretty};
 use serde_derive::{Serialize, Deserialize};
@@ -80,7 +80,63 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
 }
 
 fn stabilize_games(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut RegulationToken) -> () {
-    tkn.harden(); // TODO: !!!
+    let game = match conn.get_unstable_game() {
+        Err(e) => {
+            tx.send(Message::Err(e)).unwrap();
+            return;
+        },
+        Ok(g) => g
+    };
+    // if game is None, there is no more unstable games
+    let game = match game {
+        None => {
+            tx.send(Message::Stabilized).unwrap();
+            return;
+        },
+        Some(g) => g
+    };
+    // ask for user ratings
+    let mut avg = Avg::new();
+    for page in bgg::get_user_ratings(&game) {
+        let users = match page {
+            Err(e) => {
+                tx.send(Message::Notification(e)).unwrap();
+                tkn.harden(); // wait a bit longer before next request
+                return;
+            },
+            Ok(vec) => vec
+        };
+        // batch insert them to db
+        let usernames: Vec<&User> = users.iter().map(|(u, _)| u).collect();
+        match conn.add_users(&usernames) {
+            Err(e) => {
+                tx.send(Message::Err(e)).unwrap();
+                return;
+            },
+            Ok(_) => {}
+        };
+        // check user stability and trust
+        for (user, rating) in users {
+            match conn.check_user(user) {
+                Err(e) => {
+                    tx.send(Message::Err(e)).unwrap();
+                    return;
+                },
+                Ok(None) => return, // user is unstable, move along
+                Ok(Some(true)) => avg.add(rating),
+                Ok(Some(false)) => {} // can't trust, ignore
+            }
+        }
+    }
+    // every user was stable
+    // save average
+    match conn.update_game(&game, avg.result()) {
+        Err(e) => {
+            tx.send(Message::Err(e)).unwrap();
+            return;
+        },
+        Ok(()) => tx.send(Message::GameProgress(game)).unwrap()
+    };
 }
 
 fn stabilize_users(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut RegulationToken) -> () {
@@ -95,7 +151,7 @@ fn stabilize_users(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
     let user = match user {
         None => {
             tkn.harden(); // to prevent eternal loop
-            return
+            return;
         },
         Some(u) => u
     };
@@ -104,7 +160,7 @@ fn stabilize_users(tx: &Sender<Message>, conn: &db::DbConn, tkn: &mut Regulation
         Err(e) => {
             tx.send(Message::Notification(e)).unwrap();
             tkn.harden(); // wait a bit longer before next request
-            return
+            return;
         },
         Ok(rate) => rate
     };
@@ -147,7 +203,6 @@ pub fn stabilize(max_attempts: u32, delay_step: Duration, progress: impl Fn(Mess
                 result = Err(e);
             },
             Message::Stabilized => {
-                // One is dead already
                 main_tx1.send(Order::Stop).unwrap_or_default();
                 main_tx2.send(Order::Stop).unwrap_or_default();
             },
@@ -212,5 +267,23 @@ impl RegulationToken {
     }
     fn harden(&mut self) -> () {
         self.i += 1;
+    }
+}
+
+struct Avg {
+    n: u32,
+    val: f32
+}
+
+impl Avg { // TODO: test
+    fn new() -> Avg {
+        Avg {n: 0, val: 0.0}
+    }
+    fn add(&mut self, nmbr: f32) -> () {
+        self.n += 1;
+        self.val = (nmbr + (self.n - 1) as f32 * self.val) / self.n as f32;
+    }
+    fn result(&self) -> f32 {
+        self.val
     }
 }

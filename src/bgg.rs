@@ -85,3 +85,11 @@ pub fn pull_games(user_limit: u32) -> impl Iterator<Item=Result<Vec<Game>, Error
 pub fn get_user_average_rating(user: &User) -> Result<f32, Error> {
     Ok(7.5) // TODO: stub
 }
+
+pub fn get_user_ratings(game: &Game) -> impl Iterator<Item=Result<Vec<(User, f32)>, Error>> {
+    let mut x: Vec<Result<Vec<(User, f32)>, Error>> = Vec::new();
+    let err = failure::format_err!("Error!!!");
+    x.push(Err(err));
+    x.into_iter()
+    // bail!("Non Implmented") // TODO: stub
+}

@@ -79,7 +79,7 @@ pub struct DbConn {
 
 impl DbConn {
     pub fn new() -> Result<DbConn, Error> {
-        let conn = Connection::open(DB_FILE_NAME)?;
+        let conn = Connection::open(DB_FILE_NAME)?; // TODO: thread option
         Ok(DbConn { conn })
     }
 
@@ -89,6 +89,26 @@ impl DbConn {
     }
 
     pub fn update_user(&self, user: &User, trusted: bool) -> Result<(), Error> {
+        Ok(()) // TODO: stub
+    }
+
+    pub fn get_unstable_game(&self) -> Result<Option<Game>, Error> {
+        Ok(Some(Game::new(123, "Test game".to_string())))
+        // Ok(None) // TODO stub
+    }
+
+    pub fn add_users(&self, users: &[&User]) -> Result<(), Error> {
+        Ok(()) // TODO: stub
+    }
+
+    pub fn check_user(&self, user: User) -> Result<Option<bool>, Error> {
+        // None - unstable
+        // Some(true) - trusted
+        // Some(false) - not trusted
+        Ok(None) // TODO Stub
+    }
+
+    pub fn update_game(&self, game: &Game, rating: f32) -> Result<(), Error> {
         Ok(()) // TODO: stub
     }
 }
