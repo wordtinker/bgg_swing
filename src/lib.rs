@@ -11,3 +11,5 @@ impl Game {
         Game { id, name, rating: 0.0 }
     }
 }
+
+pub type User = u32; // user id

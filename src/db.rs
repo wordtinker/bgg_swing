@@ -2,7 +2,7 @@ use rusqlite::{Connection, NO_PARAMS};
 use rusqlite::types::ToSql;
 use failure::{Error, ResultExt, bail};
 use chrono::Local;
-use crate::lib::Game;
+use crate::lib::{Game, User};
 
 const DB_FILE_NAME: &str = "top.db";
 
@@ -71,4 +71,24 @@ pub fn get_all_games() -> Result<Vec<Game>, Error> {
         games.push(game?);
     }
     Ok(games)
+}
+
+pub struct DbConn {
+    conn: Connection
+}
+
+impl DbConn {
+    pub fn new() -> Result<DbConn, Error> {
+        let conn = Connection::open(DB_FILE_NAME)?;
+        Ok(DbConn { conn })
+    }
+
+    pub fn get_unstable_user(&self) -> Result<Option<User>, Error> {
+        return Ok(Some(2584));
+        Ok(None) // TODO: stub
+    }
+
+    pub fn update_user(&self, user: &User, trusted: bool) -> Result<(), Error> {
+        Ok(()) // TODO: stub
+    }
 }

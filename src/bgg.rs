@@ -2,16 +2,16 @@ use failure::{Error, ResultExt, bail};
 use reqwest;
 use select::document::Document;
 use select::predicate::{Name, Class};
-use crate::lib::Game;
+use crate::lib::{Game, User};
 
 struct GameIterator {
-    page: usize,
-    user_limit: usize,
+    page: u32,
+    user_limit: u32,
     seen: Option<Game>
 }
 
 impl GameIterator {
-    fn new(user_limit: usize) -> GameIterator {
+    fn new(user_limit: u32) -> GameIterator {
         GameIterator {page: 0 , user_limit, seen: None}
     }
 }
@@ -36,7 +36,7 @@ impl Iterator for GameIterator {
     }
 }
 
-fn get_games_from(page: usize, user_limit: usize) -> Result<Vec<Game>, Error> {
+fn get_games_from(page: u32, user_limit: u32) -> Result<Vec<Game>, Error> {
     let url =  format!(
         "https://boardgamegeek.com/search/boardgame/page/{}?advsearch=1&range%5Bnumvoters%5D%5Bmin%5D={}&nosubtypes%5B0%5D=boardgameexpansion",
         page,
@@ -78,6 +78,10 @@ fn href_to_id(href: &str) -> Result<u32, Error> {
 }
 
 
-pub fn pull_games(user_limit: usize) -> impl Iterator<Item=Result<Vec<Game>, Error>> {
+pub fn pull_games(user_limit: u32) -> impl Iterator<Item=Result<Vec<Game>, Error>> {
         GameIterator::new(user_limit)
+}
+
+pub fn get_user_average_rating(user: &User) -> Result<f32, Error> {
+    Ok(7.5) // TODO: stub
 }

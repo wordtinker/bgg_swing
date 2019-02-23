@@ -4,10 +4,12 @@ mod db;
 mod bgg;
 mod lib;
 
+use crate::core::Message;
 use cli::Cli;
 use structopt::StructOpt;
-use failure::{Error, ResultExt};
+use failure::Error;
 use exitfailure::ExitFailure;
+use std::time::Duration;
 
 fn main() -> Result<(), ExitFailure> {
     let cli = Cli::from_args();
@@ -50,8 +52,15 @@ fn pull_games() -> Result<(), Error> {
 }
 
 fn stabilize() -> Result<(), Error> {
-    // TODO: in parralel balance game + balance users
-    // TODO: Ctrl+C safe stop ??
+    let config = core::config()?;
+    println!("Start balancing.");
+    core::stabilize(config.attempts, Duration::from_millis(config.delay as u64), |m| match m { // TODO: new format?
+        Message::UserProgress(user) => println!("{:?}", user),
+        Message::GameProgress(game) => println!("{:?}", game),
+        Message::Notification(error) => println!("{:?}", error),
+        _ => {} 
+    })?;
+
     Ok(())
 }
 
