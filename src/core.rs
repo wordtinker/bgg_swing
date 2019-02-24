@@ -11,8 +11,8 @@ use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
 
 const CONFIG_FILE_NAME: &str = "app.config";
-const LOWER_BOUND: f32 = 2.0;
-const UPPER_BOUND: f32 = 8.0;
+const LOWER_BOUND: f64 = 2.0;
+const UPPER_BOUND: f64 = 8.0;
 
 pub fn create_structure() -> Result<(), Error> {
     // create config file
@@ -46,7 +46,7 @@ pub fn make_report() -> Result<Vec<Game>, Error> {
     }
 }
 
-fn trust(rating: f32) -> bool {
+fn trust(rating: f64) -> bool {
     LOWER_BOUND < rating && rating < UPPER_BOUND
 }
 

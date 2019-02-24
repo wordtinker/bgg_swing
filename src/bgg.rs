@@ -36,6 +36,7 @@ impl Iterator for UserIterator {
 }
 
 fn get_users_from(game_id: u32, page: u32, page_size: u32) -> Result<Vec<(User, f64)>, Error> {
+    println!("From game thread!!!!!!!!!!!!"); // TODO Test
     let url =  format!(
         "https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&id={}&ratingcomments=1&page={}&pagesize={}",
         game_id,
@@ -144,8 +145,21 @@ pub fn pull_games(user_limit: u32) -> impl Iterator<Item=Result<Vec<Game>, Error
     GameIterator::new(user_limit)
 }
 
-pub fn get_user_average_rating(user: &User) -> Result<f32, Error> {
-    Ok(7.5) // TODO: stub
+pub fn get_user_average_rating(user: &User) -> Result<f64, Error> {
+    let url =  format!("https://boardgamegeek.com/user/{}", user);
+    let resp = reqwest::get(&url)
+        .with_context(|_| format!("could not download page `{}`", url))?;
+    let doc = Document::from_read(resp)?;
+    let rating = doc
+        .find(Class("profile_block")).skip(3).take(1)
+        .flat_map(|pb| pb.find(Name("table"))).skip(5).take(1)
+        .flat_map(|t| t.find(Name("tr"))).skip(2).take(1)
+        .flat_map(|tr| tr.find(Name("td"))).nth(1);
+    let rating = match rating {
+        None => bail!("Can't find rating element"),
+        Some(r) => r.text().parse::<f64>()?
+    };
+    Ok(rating)
 }
 
 pub fn get_user_ratings(game: &Game) -> impl Iterator<Item=Result<Vec<(User, f64)>, Error>> {

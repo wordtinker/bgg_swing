@@ -141,6 +141,7 @@ impl DbConn {
     }
 
     pub fn update_game(&self, game: &Game) -> Result<(), Error> {
+        // TODO rating, n of votes
         match self.conn.execute("UPDATE games SET stable = 1 WHERE id = ?", &[game.id]) {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
