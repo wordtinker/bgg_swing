@@ -117,7 +117,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
         };
         // check user stability and trust
         for (user, rating) in users {
-            match conn.check_user(user) {
+            match conn.check_user(&user) {
                 Err(e) => {
                     tx.send(Message::Err(e)).unwrap();
                     return;

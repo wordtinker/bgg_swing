@@ -118,14 +118,22 @@ impl DbConn {
         Ok(())
     }
 
-    pub fn check_user(&self, user: User) -> Result<Option<bool>, Error> {
-        // None - unstable
-        // Some(true) - trusted
-        // Some(false) - not trusted
-        Ok(Some(true)) // TODO Stub
+    pub fn check_user(&self, user: &User) -> Result<Option<bool>, Error> {
+        type Row = (bool, bool); // use to get rid of ugly r.get::<_,bool>(0)
+        let mut stmt = self.conn.prepare("select stable, trusted from users where name = ?")?;
+        let result:Option<bool> = match stmt.query_row(&[user as &ToSql], |r| -> Row { (r.get(0), r.get(1)) }) {
+            Err(e) => bail!(e),
+            Ok((false, _)) => None, // Unstable
+            Ok((_, true)) => Some(true), // trusted
+            Ok((_, false)) => Some(false) // not trusted
+        };
+        Ok(result)
     }
 
     pub fn update_game(&self, game: &Game) -> Result<(), Error> {
-        Ok(()) // TODO: stub
+        match self.conn.execute("UPDATE games SET stable = 1 WHERE id = ?", &[game.id]) {
+            Ok(_) => Ok(()),
+            Err(err) => bail!(err)
+        }
     }
 }

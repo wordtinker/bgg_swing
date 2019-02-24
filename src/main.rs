@@ -60,7 +60,7 @@ fn stabilize() -> Result<(), Error> {
         Message::Notification(error) => println!("{:?}", error),
         _ => {} 
     })?;
-
+    println!("Finished balancing.");
     Ok(())
 }
 
