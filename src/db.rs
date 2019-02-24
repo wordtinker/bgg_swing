@@ -89,11 +89,21 @@ impl DbConn {
     }
 
     pub fn get_unstable_user(&self) -> Result<Option<User>, Error> {
-        Ok(None) // TODO: stub
+        let mut stmt = self.conn.prepare("select name from users where not stable limit 1")?;
+        let user: Option<User> = match stmt.query_row(NO_PARAMS, |r| r.get(0)) {
+            Ok(u) => Some(u),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => bail!(e)
+        };
+        Ok(user)
     }
 
     pub fn update_user(&self, user: &User, trusted: bool) -> Result<(), Error> {
-        Ok(()) // TODO: stub
+        match self.conn.execute("UPDATE users SET stable = 1, trusted = ?1 WHERE name = ?2",
+                &[&trusted as &ToSql, user]) {
+            Ok(_) => Ok(()),
+            Err(err) => bail!(err)
+        }
     }
 
     pub fn get_unstable_game(&self) -> Result<Option<Game>, Error> {
