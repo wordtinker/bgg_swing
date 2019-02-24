@@ -37,7 +37,6 @@ impl Iterator for UserIterator {
 }
 
 fn get_users_from(game_id: u32, page: u32) -> Result<Vec<(User, f64)>, Error> {
-    println!("From game thread!!!!!!!!!!!!"); // TODO Test
     let url =  format!(
         "https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&id={}&ratingcomments=1&page={}&pagesize={}",
         game_id,

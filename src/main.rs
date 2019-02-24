@@ -62,8 +62,9 @@ fn stabilize() -> Result<(), Error> {
                 println!("Found another 50.")
             };
         },
-        Message::GameProgress(game) => println!("{:?} is balanced.", game),
+        Message::GameProgress(game) => println!("{:?} is balanced.", game.name),
         Message::Notification(error) => println!("{:?}", error),
+        Message::Info(game) => println!("About to ask BGG about {}", game.name),
         _ => {} 
     })?;
     println!("Seen {} users  today.", seen_users);

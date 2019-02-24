@@ -51,14 +51,6 @@ pub fn add_games(games: Vec<Game>) -> Result<(), Error> {
     Ok(())
 }
 
-// TODO: ???
-pub fn is_stable() -> Result<bool, Error> {
-    let conn = Connection::open(DB_FILE_NAME)?;
-    let mut stmt = conn.prepare("select count(*) from games where not stable")?;
-    let count: u32 = stmt.query_row(NO_PARAMS, |r| r.get(0))?;
-    Ok(count == 0)
-}
-
 pub fn get_all_games() -> Result<Vec<Game>, Error> {
     let conn = Connection::open(DB_FILE_NAME)?;
     let mut stmt = conn.prepare("SELECT id, name, rating, num_votes FROM games order by rating desc")?;

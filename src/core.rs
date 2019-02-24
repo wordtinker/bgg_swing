@@ -40,7 +40,8 @@ pub fn pull_games(limit: u32, progress: impl Fn(usize) -> ()) -> Result<(), Erro
 }
 
 pub fn make_report() -> Result<Vec<Game>, Error> {
-    if db::is_stable()? {
+    let conn = db::DbConn::new()?;
+    if conn.get_number_of_unstable_games()? == 0 {
         db::get_all_games()
     } else {
         Ok(Vec::new())
@@ -120,6 +121,8 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
         },
         Some(g) => g
     };
+    // NOTE: for debug purpose
+    tx.send(Message::Info(game.clone())).unwrap();
     // ask for user ratings
     let mut avg = Avg::new();
     for page in bgg::get_user_ratings(&game) {
@@ -266,7 +269,7 @@ pub enum Message {
     UserProgress(User),
     GameProgress(Game),
     Notification(Error),
-    Info(Game) // TODO:
+    Info(Game)
 }
 
 enum Order {
