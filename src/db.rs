@@ -1,6 +1,6 @@
 use rusqlite::{Connection, NO_PARAMS, OpenFlags};
 use rusqlite::types::ToSql;
-use failure::{Error, ResultExt, bail};
+use failure::{Error, bail};
 use chrono::Local;
 use crate::lib::{Game, User};
 
@@ -141,8 +141,8 @@ impl DbConn {
     }
 
     pub fn update_game(&self, game: &Game) -> Result<(), Error> {
-        // TODO rating, n of votes
-        match self.conn.execute("UPDATE games SET stable = 1 WHERE id = ?", &[game.id]) {
+        match self.conn.execute("UPDATE games SET stable = 1, rating = ?1, num_votes = ?2 WHERE id = ?3",
+                &[&game.rating as &ToSql, &game.votes, &game.id]) {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
         }
