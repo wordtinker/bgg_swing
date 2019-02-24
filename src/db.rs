@@ -51,6 +51,7 @@ pub fn add_games(games: Vec<Game>) -> Result<(), Error> {
     Ok(())
 }
 
+// TODO: ???
 pub fn is_stable() -> Result<bool, Error> {
     let conn = Connection::open(DB_FILE_NAME)?;
     let mut stmt = conn.prepare("select count(*) from games where not stable")?;
@@ -88,6 +89,12 @@ impl DbConn {
         Ok(DbConn { conn })
     }
 
+    pub fn get_number_of_unstable_users(&self) -> Result<u32, Error> {
+        let mut stmt = self.conn.prepare("select count(*) from users where not stable")?;
+        let count: u32 = stmt.query_row(NO_PARAMS, |r| r.get(0))?;
+        Ok(count)
+    }
+
     pub fn get_unstable_user(&self) -> Result<Option<User>, Error> {
         let mut stmt = self.conn.prepare("select name from users where not stable limit 1")?;
         let user: Option<User> = match stmt.query_row(NO_PARAMS, |r| r.get(0)) {
@@ -104,6 +111,12 @@ impl DbConn {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
         }
+    }
+
+    pub fn get_number_of_unstable_games(&self) -> Result<u32, Error> {
+        let mut stmt = self.conn.prepare("select count(*) from games where not stable")?;
+        let count: u32 = stmt.query_row(NO_PARAMS, |r| r.get(0))?;
+        Ok(count)
     }
 
     pub fn get_unstable_game(&self) -> Result<Option<Game>, Error> {

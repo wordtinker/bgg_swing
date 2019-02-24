@@ -13,6 +13,7 @@ use std::time::Duration;
 const CONFIG_FILE_NAME: &str = "app.config";
 const LOWER_BOUND: f64 = 2.0;
 const UPPER_BOUND: f64 = 8.0;
+const MISS_CHANCE: f32 = 0.5;
 
 pub fn create_structure() -> Result<(), Error> {
     // create config file
@@ -44,6 +45,10 @@ pub fn make_report() -> Result<Vec<Game>, Error> {
     } else {
         Ok(Vec::new())
     }
+}
+
+fn users_prevail(number_of_games: u32, number_of_users: u32) -> bool {
+    (number_of_games as f32 * MISS_CHANCE).floor() as u32 * bgg::USER_PAGE_SIZE < number_of_users
 }
 
 fn trust(rating: f64) -> bool {
@@ -80,6 +85,26 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
 }
 
 fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut RegulationToken) -> () {
+    // check if we potentially has a work to do
+    let number_of_games = match conn.get_number_of_unstable_games() {
+        Err(e) => {
+            tx.send(Message::Err(e)).unwrap();
+            return;
+        },
+        Ok(n) => n
+    };
+    let number_of_users = match conn.get_number_of_unstable_users() {
+        Err(e) => {
+            tx.send(Message::Err(e)).unwrap();
+            return;
+        },
+        Ok(n) => n
+    };
+    if users_prevail(number_of_games, number_of_users) {
+        thread::sleep(Duration::from_millis(20000));// TODO: !!! sleep ??? from config
+        return;
+    }
+    // find a game to work with
     let game = match conn.get_unstable_game() {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
@@ -240,7 +265,8 @@ pub enum Message {
     Stabilized,
     UserProgress(User),
     GameProgress(Game),
-    Notification(Error)
+    Notification(Error),
+    Info(Game) // TODO:
 }
 
 enum Order {

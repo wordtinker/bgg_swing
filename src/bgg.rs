@@ -4,15 +4,16 @@ use select::document::Document;
 use select::predicate::{Name, Class};
 use crate::lib::{Game, User};
 
+pub const USER_PAGE_SIZE: u32 = 100;
+
 struct UserIterator {
     game_id: u32,
-    page_size: u32,
     page: u32
 }
 
 impl UserIterator {
     fn new(game_id: u32) -> UserIterator {
-        UserIterator {game_id, page: 0 , page_size: 100}
+        UserIterator {game_id, page: 0 }
     }
 }
 
@@ -22,7 +23,7 @@ impl Iterator for UserIterator {
     fn next(&mut self) -> Option<Self::Item> {
         self.page += 1;
         // get users for a game
-        match get_users_from(self.game_id, self.page, self.page_size) {
+        match get_users_from(self.game_id, self.page) {
             Ok(users) => {
                 if users.is_empty() {
                     None
@@ -35,13 +36,13 @@ impl Iterator for UserIterator {
     }
 }
 
-fn get_users_from(game_id: u32, page: u32, page_size: u32) -> Result<Vec<(User, f64)>, Error> {
+fn get_users_from(game_id: u32, page: u32) -> Result<Vec<(User, f64)>, Error> {
     println!("From game thread!!!!!!!!!!!!"); // TODO Test
     let url =  format!(
         "https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&id={}&ratingcomments=1&page={}&pagesize={}",
         game_id,
         page,
-        page_size
+        USER_PAGE_SIZE
     );
     let resp = reqwest::get(&url)
         .with_context(|_| format!("could not download page `{}`", url))?;
