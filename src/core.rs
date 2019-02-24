@@ -179,7 +179,7 @@ fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
     }
 }
 
-pub fn stabilize(max_attempts: u32, delay_step: Duration, progress: impl Fn(Message) -> ()) -> Result<(), Error> {
+pub fn stabilize(max_attempts: u32, delay_step: Duration, mut progress: impl FnMut(Message) -> ()) -> Result<(), Error> {
     // First comm network
     let (games_tx, main_rx) = mpsc::channel();
     let users_tx = mpsc::Sender::clone(&games_tx);

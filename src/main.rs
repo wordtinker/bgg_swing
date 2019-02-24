@@ -54,12 +54,19 @@ fn pull_games() -> Result<(), Error> {
 fn stabilize() -> Result<(), Error> {
     let config = core::config()?;
     println!("Start balancing.");
-    core::stabilize(config.attempts, Duration::from_millis(config.delay as u64), |m| match m { // TODO: new format?
-        Message::UserProgress(user) => println!("{:?}", user),
-        Message::GameProgress(game) => println!("{:?}", game),
+    let mut seen_users: u32 = 0;
+    core::stabilize(config.attempts, Duration::from_millis(config.delay as u64), |m| match m {
+        Message::UserProgress(_) => {
+            seen_users += 1;
+            if seen_users % 50 == 0 {
+                println!("Found another 50.")
+            };
+        },
+        Message::GameProgress(game) => println!("{:?} is balanced.", game),
         Message::Notification(error) => println!("{:?}", error),
         _ => {} 
     })?;
+    println!("Seen {} users  today.", seen_users);
     println!("Finished balancing.");
     Ok(())
 }
