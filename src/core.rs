@@ -57,8 +57,12 @@ fn trust(rating: f64) -> bool {
     LOWER_BOUND < rating && rating < UPPER_BOUND
 }
 
-fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
+fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, config: Config,
             continuation: impl Fn(&Sender<Message>, &mut db::DbConn, &Client, &mut RegulationToken) -> ()) -> () {
+    // Configure thread
+    let delay_step = Duration::from_millis(config.delay as u64);
+    let prevail_for = Duration::from_millis(config.prevail_for as u64);
+    let mut tkn = RegulationToken::new(config.attempts, delay_step, prevail_for);
     let mut conn = match db::DbConn::new() {
             Err(e) => {
                 tx.send(Message::Err(e)).unwrap();
@@ -67,6 +71,7 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
             Ok(cn) => cn
     };
     let client = Client::new();
+    // Start doing main job
     loop {
         // check if we got stop command
         match rx.try_recv() {
@@ -219,16 +224,11 @@ pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Res
     let (main_tx1, games_rx) = mpsc::channel();
     let (main_tx2, users_rx) = mpsc::channel();
 
-    // TODO: move to with_cont
     // try to balance every game
-    let delay_step = Duration::from_millis(config.delay as u64);
-    let prevail_for = Duration::from_millis(config.prevail_for as u64);
     // that must be the only source of Message::Stabilized
-    let reg_token = RegulationToken::new(config.attempts, delay_step, prevail_for);
-    thread::spawn(move || with_cont(games_tx, games_rx, reg_token, stabilize_games ));
+    thread::spawn(move || with_cont(games_tx, games_rx, config, stabilize_games ));
     // try to balance every user
-    let reg_token = RegulationToken::new(config.attempts, delay_step, prevail_for);
-    thread::spawn(move || with_cont(users_tx, users_rx, reg_token, stabilize_users ));
+    thread::spawn(move || with_cont(users_tx, users_rx, config, stabilize_users ));
 
     // This will block main until iterator yields None
     let mut result: Result<(), Error> = Ok(());
@@ -256,7 +256,7 @@ pub fn config() -> Result<Config, Error> {
     Ok(conf)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub struct Config {
     pub limit: u32, // number or user ratings for a game
     pub attempts: u32, // number or errors that thread can handle before stop
