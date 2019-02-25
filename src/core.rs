@@ -18,7 +18,7 @@ const MISS_CHANCE: f32 = 0.5;
 
 pub fn create_structure() -> Result<(), Error> {
     // create config file
-    let new_conf = to_string_pretty(&Config::new(1000, 20, 100, 50000))?;
+    let new_conf = to_string_pretty(&Config::new(1000, 20, 500, 1000, 50000))?;
     fs::write(CONFIG_FILE_NAME, new_conf)?;
     // create db file
     db::initialize()?;
@@ -57,12 +57,9 @@ fn trust(rating: f64) -> bool {
     LOWER_BOUND < rating && rating < UPPER_BOUND
 }
 
-fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, config: Config,
+fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
             continuation: impl Fn(&Sender<Message>, &mut db::DbConn, &Client, &mut RegulationToken) -> ()) -> () {
     // Configure thread
-    let delay_step = Duration::from_millis(config.delay as u64);
-    let prevail_for = Duration::from_millis(config.prevail_for as u64);
-    let mut tkn = RegulationToken::new(config.attempts, delay_step, prevail_for);
     let mut conn = match db::DbConn::new() {
             Err(e) => {
                 tx.send(Message::Err(e)).unwrap();
@@ -226,9 +223,14 @@ pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Res
 
     // try to balance every game
     // that must be the only source of Message::Stabilized
-    thread::spawn(move || with_cont(games_tx, games_rx, config, stabilize_games ));
+    let delay_step = Duration::from_millis(config.g_delay as u64);
+    let prevail_for = Duration::from_millis(config.prevail_for as u64);
+    let g_tkn = RegulationToken::new(config.attempts, delay_step, prevail_for);
+    thread::spawn(move || with_cont(games_tx, games_rx, g_tkn, stabilize_games ));
     // try to balance every user
-    thread::spawn(move || with_cont(users_tx, users_rx, config, stabilize_users ));
+    let delay_step = Duration::from_millis(config.u_delay as u64);
+    let u_tkn = RegulationToken::new(config.attempts, delay_step, prevail_for);
+    thread::spawn(move || with_cont(users_tx, users_rx, u_tkn, stabilize_users ));
 
     // This will block main until iterator yields None
     let mut result: Result<(), Error> = Ok(());
@@ -260,13 +262,14 @@ pub fn config() -> Result<Config, Error> {
 pub struct Config {
     pub limit: u32, // number or user ratings for a game
     pub attempts: u32, // number or errors that thread can handle before stop
-    pub delay: u32, // ms, delay increase after every failure
+    pub u_delay: u32, // ms, delay increase after every failure for stabilize_users
+    pub g_delay: u32, // ms, delay increase after every failure for stabilize_games
     pub prevail_for: u32 // ms, sleep time for game thread when users pvevail
 }
 
 impl Config {
-    fn new(limit: u32, attempts: u32, delay: u32, prevail_for: u32) -> Config {
-        Config {limit, attempts, delay, prevail_for}
+    fn new(limit: u32, attempts: u32, u_delay: u32, g_delay: u32, prevail_for: u32) -> Config {
+        Config {limit, attempts, u_delay, g_delay, prevail_for}
     }
 }
 
@@ -296,7 +299,7 @@ impl RegulationToken {
         RegulationToken { limit, delay_step, i: 0 , prevail_for}
     }
     fn delay(&self) -> Duration {
-        self.delay_step * self.i
+        self.delay_step * (self.i + 1)
     }
     fn is_stopped(&self) -> bool {
         self.i >= self.limit
