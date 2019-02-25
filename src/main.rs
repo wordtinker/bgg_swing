@@ -66,7 +66,7 @@ fn stabilize() -> Result<(), Error> {
         Message::Info(game) => println!("About to ask BGG about {}", game.name),
         _ => {} 
     })?;
-    println!("Seen {} users  today.", seen_users);
+    println!("Seen {} users today.", seen_users);
     println!("Finished balancing.");
     Ok(())
 }

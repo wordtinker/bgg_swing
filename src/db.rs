@@ -98,8 +98,9 @@ impl DbConn {
     }
 
     pub fn update_user(&self, user: &User, trusted: bool) -> Result<(), Error> {
-        match self.conn.execute("UPDATE users SET stable = 1, trusted = ?1 WHERE name = ?2",
-                &[&trusted as &ToSql, user]) {
+        let now = Local::now();
+        match self.conn.execute("UPDATE users SET stable = 1, trusted = ?1, updated =?2 WHERE name = ?3",
+                &[&trusted as &ToSql, &now.to_string() ,user]) {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
         }
@@ -146,8 +147,9 @@ impl DbConn {
     }
 
     pub fn update_game(&self, game: &Game) -> Result<(), Error> {
-        match self.conn.execute("UPDATE games SET stable = 1, rating = ?1, num_votes = ?2 WHERE id = ?3",
-                &[&game.rating as &ToSql, &game.votes, &game.id]) {
+        let now = Local::now();
+        match self.conn.execute("UPDATE games SET stable = 1, rating = ?1, num_votes = ?2, updated = ?3 WHERE id = ?4",
+                &[&game.rating as &ToSql, &game.votes, &now.to_string(), &game.id]) {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
         }
