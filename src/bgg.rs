@@ -1,5 +1,6 @@
 use failure::{Error, ResultExt, bail};
 use reqwest;
+use reqwest::StatusCode;
 use select::document::Document;
 use select::predicate::{Name, Class};
 use crate::lib::{Game, User};
@@ -45,6 +46,9 @@ fn get_users_from(game_id: u32, page: u32) -> Result<Vec<(User, f64)>, Error> {
     );
     let resp = reqwest::get(&url)
         .with_context(|_| format!("could not download page `{}`", url))?;
+    if resp.status() != StatusCode::OK {
+        bail!("Can't get page {} for {}", page, game_id);
+    }
     let doc = Document::from_read(resp)?;
     filter_users(doc)
 }
@@ -107,6 +111,9 @@ fn get_games_from(page: u32, user_limit: u32) -> Result<Vec<Game>, Error> {
     );
     let resp = reqwest::get(&url)
         .with_context(|_| format!("could not download page `{}`", url))?;
+    if resp.status() != StatusCode::OK {
+        bail!("Can't get games from {}", page);
+    }
     let doc = Document::from_read(resp)?;
     filter_games(doc)
 }
@@ -149,6 +156,9 @@ pub fn get_user_average_rating(user: &User) -> Result<f64, Error> {
     let url =  format!("https://boardgamegeek.com/user/{}", user);
     let resp = reqwest::get(&url)
         .with_context(|_| format!("could not download page `{}`", url))?;
+    if resp.status() != StatusCode::OK {
+        bail!("Can't get user average for {}", user);
+    }
     let doc = Document::from_read(resp)?;
     let rating = doc
         .find(Class("profile_block")).skip(3).take(1)
