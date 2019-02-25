@@ -48,7 +48,7 @@ fn get_users_from(client: &Client, game_id: u32, page: u32) -> Result<Vec<(User,
     let resp = client.get(&url).send()
         .with_context(|_| format!("could not download page `{}`", url))?;
     if resp.status() != StatusCode::OK {
-        bail!("Can't get page {} for {}", page, game_id);
+        bail!("Can't get page {} for {}. Status: {}", page, game_id, resp.status());
     }
     let doc = Document::from_read(resp)?;
     filter_users(doc)
