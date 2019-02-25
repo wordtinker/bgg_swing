@@ -132,7 +132,10 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
                 tkn.harden(); // wait a bit longer before next request
                 return;
             },
-            Ok(vec) => vec
+            Ok(vec) => {
+                tkn.ease();
+                vec
+            }
         };
         // batch insert them to db
         let usernames: Vec<&User> = users.iter().map(|(u, _)| u).collect();
