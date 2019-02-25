@@ -9,7 +9,8 @@ use cli::Cli;
 use structopt::StructOpt;
 use failure::Error;
 use exitfailure::ExitFailure;
-use colored::*;
+use std::io::Write;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 fn main() -> Result<(), ExitFailure> {
     let cli = Cli::from_args();
@@ -54,23 +55,28 @@ fn pull_games() -> Result<(), Error> {
 fn stabilize() -> Result<(), Error> {
     let config = core::config()?;
     println!("Start balancing.");
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let mut seen_users: u32 = 0;
     core::stabilize(config, |m| match m {
         Message::UserProgress(_) => {
             seen_users += 1;
             if seen_users % 50 == 0 {
-                println!("Found another 50.")
+                stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
+                writeln!(&mut stdout, "Found another 50.").unwrap();
             };
         },
-        Message::GameProgress(game) =>{
-            let m = format!("{} is balanced.", game.name);
-            println!("{}", m.yellow());
+        Message::GameProgress(game) => {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
+            writeln!(&mut stdout, "{} is balanced.", game.name).unwrap();
         },
         Message::Notification(error) => {
-            let e = format!("{:?}", error);
-            eprintln!("{}", e.red());
-        } ,
-        Message::Info(game) => println!("About to ask BGG about {}", game.name),
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+            writeln!(&mut stdout, "{:?}", error).unwrap();
+        },
+        Message::Info(game) => {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green))).unwrap();
+            writeln!(&mut stdout, "About to ask BGG about {}", game.name).unwrap();
+        },
         _ => {} 
     })?;
     println!("Seen {} users today.", seen_users);
