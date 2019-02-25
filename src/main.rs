@@ -9,6 +9,7 @@ use cli::Cli;
 use structopt::StructOpt;
 use failure::Error;
 use exitfailure::ExitFailure;
+use colored::*;
 
 fn main() -> Result<(), ExitFailure> {
     let cli = Cli::from_args();
@@ -61,8 +62,14 @@ fn stabilize() -> Result<(), Error> {
                 println!("Found another 50.")
             };
         },
-        Message::GameProgress(game) => println!("{:?} is balanced.", game.name),
-        Message::Notification(error) => eprintln!("{:?}", error),
+        Message::GameProgress(game) =>{
+            let m = format!("{} is balanced.", game.name);
+            println!("{}", m.yellow());
+        },
+        Message::Notification(error) => {
+            let e = format!("{:?}", error);
+            eprintln!("{}", e.red());
+        } ,
         Message::Info(game) => println!("About to ask BGG about {}", game.name),
         _ => {} 
     })?;
