@@ -34,7 +34,7 @@ fn make_report() -> Result<(), Error> {
         println!("Game list is not stable enough.");
     } else {
         for game in games {
-            println!("{}\t{}\t{}", game.id, game.name, game.rating);
+            println!("{}\t{}\t{:.2}\t{}", game.id, game.name, game.rating, game.votes);
         }
     }
     Ok(())
