@@ -72,25 +72,26 @@ fn filter_users(doc: Document) -> Result<Vec<(User, f64)>, Error> {
     Ok(users)
 }
 
-struct GameIterator {
+pub struct GameIterator<'a> {
+    client: &'a Client,
     page: u32,
     user_limit: u32,
     seen: Option<Game>
 }
 
-impl GameIterator {
-    fn new(user_limit: u32) -> GameIterator {
-        GameIterator {page: 0 , user_limit, seen: None}
+impl<'a> GameIterator<'a> {
+    pub fn new(client: &'a Client, user_limit: u32) -> GameIterator {
+        GameIterator {client, page: 0 , user_limit, seen: None}
     }
 }
 
-impl Iterator for GameIterator {
+impl<'a> Iterator for GameIterator<'a> {
     type Item = Result<Vec<Game>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.page += 1;
         // get games from a page
-        match get_games_from(self.page, self.user_limit) {
+        match get_games_from(self.client, self.page, self.user_limit) {
             Ok(games) => {
                 if games.first() == self.seen.as_ref() || games.is_empty() {
                     None
@@ -104,13 +105,13 @@ impl Iterator for GameIterator {
     }
 }
 
-fn get_games_from(page: u32, user_limit: u32) -> Result<Vec<Game>, Error> {
+fn get_games_from(client: &Client, page: u32, user_limit: u32) -> Result<Vec<Game>, Error> {
     let url =  format!(
         "https://boardgamegeek.com/search/boardgame/page/{}?advsearch=1&range%5Bnumvoters%5D%5Bmin%5D={}&nosubtypes%5B0%5D=boardgameexpansion",
         page,
         user_limit
     );
-    let resp = reqwest::get(&url)
+    let resp = client.get(&url).send()
         .with_context(|_| format!("could not download page `{}`", url))?;
     if resp.status() != StatusCode::OK {
         bail!("Can't get games from {}", page);
@@ -148,14 +149,9 @@ fn href_to_id(href: &str) -> Result<u32, Error> {
     Ok(id)
 }
 
-
-pub fn pull_games(user_limit: u32) -> impl Iterator<Item=Result<Vec<Game>, Error>> {
-    GameIterator::new(user_limit)
-}
-
-pub fn get_user_average_rating(user: &User) -> Result<f64, Error> {
+pub fn get_user_average_rating(client: &Client, user: &User) -> Result<f64, Error> {
     let url =  format!("https://boardgamegeek.com/user/{}", user);
-    let resp = reqwest::get(&url)
+    let resp = client.get(&url).send()
         .with_context(|_| format!("could not download page `{}`", url))?;
     if resp.status() != StatusCode::OK {
         bail!("Can't get user average for {}", user);

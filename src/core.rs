@@ -31,7 +31,7 @@ pub fn pull_games(limit: u32, progress: impl Fn(usize) -> ()) -> Result<(), Erro
     // clear db
     db::drop_all_games()?;
     // Collect games
-    for (i, games) in bgg::pull_games(limit).enumerate() {
+    for (i, games) in bgg::GameIterator::new(&Client::new(), limit).enumerate() {
         // Error will be elevated and next() will be never called again
         let games_on_page = games?;
         db::add_games(games_on_page)?;
@@ -123,7 +123,6 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
         },
         Some(g) => g
     };
-    // NOTE: for debug purpose
     tx.send(Message::Info(game.clone())).unwrap();
     // ask for user ratings
     let mut avg = Avg::new();
@@ -191,7 +190,7 @@ fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
         Some(u) => u
     };
     // ask bgg for user stats
-    let rating = match bgg::get_user_average_rating(&user) {
+    let rating = match bgg::get_user_average_rating(client, &user) {
         Err(e) => {
             tx.send(Message::Notification(e)).unwrap();
             tkn.harden(); // wait a bit longer before next request
