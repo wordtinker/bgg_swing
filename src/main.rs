@@ -9,7 +9,6 @@ use cli::Cli;
 use structopt::StructOpt;
 use failure::Error;
 use exitfailure::ExitFailure;
-use std::time::Duration;
 
 fn main() -> Result<(), ExitFailure> {
     let cli = Cli::from_args();
@@ -55,7 +54,7 @@ fn stabilize() -> Result<(), Error> {
     let config = core::config()?;
     println!("Start balancing.");
     let mut seen_users: u32 = 0;
-    core::stabilize(config.attempts, Duration::from_millis(config.delay as u64), |m| match m {
+    core::stabilize(config, |m| match m {
         Message::UserProgress(_) => {
             seen_users += 1;
             if seen_users % 50 == 0 {
@@ -63,7 +62,7 @@ fn stabilize() -> Result<(), Error> {
             };
         },
         Message::GameProgress(game) => println!("{:?} is balanced.", game.name),
-        Message::Notification(error) => println!("{:?}", error),
+        Message::Notification(error) => eprintln!("{:?}", error),
         Message::Info(game) => println!("About to ask BGG about {}", game.name),
         _ => {} 
     })?;
