@@ -1,5 +1,5 @@
 use failure::{Error, ResultExt, bail};
-use reqwest;
+use reqwest::Client;
 use reqwest::StatusCode;
 use select::document::Document;
 use select::predicate::{Name, Class};
@@ -7,24 +7,25 @@ use crate::lib::{Game, User};
 
 pub const USER_PAGE_SIZE: u32 = 100;
 
-struct UserIterator {
+pub struct UserIterator<'a> {
+    client: &'a Client,
     game_id: u32,
     page: u32
 }
 
-impl UserIterator {
-    fn new(game_id: u32) -> UserIterator {
-        UserIterator {game_id, page: 0 }
+impl<'a> UserIterator<'a> {
+    pub fn new(client: &'a Client, game_id: u32) -> UserIterator {
+        UserIterator {client, game_id, page: 0 }
     }
 }
 
-impl Iterator for UserIterator {
+impl<'a> Iterator for UserIterator<'a> {
     type Item = Result<Vec<(User, f64)>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.page += 1;
         // get users for a game
-        match get_users_from(self.game_id, self.page) {
+        match get_users_from(self.client, self.game_id, self.page) {
             Ok(users) => {
                 if users.is_empty() {
                     None
@@ -37,14 +38,14 @@ impl Iterator for UserIterator {
     }
 }
 
-fn get_users_from(game_id: u32, page: u32) -> Result<Vec<(User, f64)>, Error> {
+fn get_users_from(client: &Client, game_id: u32, page: u32) -> Result<Vec<(User, f64)>, Error> {
     let url =  format!(
         "https://www.boardgamegeek.com/xmlapi2/thing?type=boardgame&id={}&ratingcomments=1&page={}&pagesize={}",
         game_id,
         page,
         USER_PAGE_SIZE
     );
-    let resp = reqwest::get(&url)
+    let resp = client.get(&url).send()
         .with_context(|_| format!("could not download page `{}`", url))?;
     if resp.status() != StatusCode::OK {
         bail!("Can't get page {} for {}", page, game_id);
@@ -170,8 +171,4 @@ pub fn get_user_average_rating(user: &User) -> Result<f64, Error> {
         Some(r) => r.text().parse::<f64>()?
     };
     Ok(rating)
-}
-
-pub fn get_user_ratings(game: &Game) -> impl Iterator<Item=Result<Vec<(User, f64)>, Error>> {
-    UserIterator::new(game.id)
 }

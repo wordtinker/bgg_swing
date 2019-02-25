@@ -1,6 +1,6 @@
 [package]
 name = "bgg_swing"
-version = "0.3.15"
+version = "0.3.16"
 authors = ["wordtinker <wordtinker@yandex.ru>"]
 edition = "2018"
 

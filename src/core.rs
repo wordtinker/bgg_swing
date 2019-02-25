@@ -9,6 +9,7 @@ use std::thread;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
+use reqwest::Client;
 
 const CONFIG_FILE_NAME: &str = "app.config";
 const LOWER_BOUND: f64 = 2.0;
@@ -57,7 +58,7 @@ fn trust(rating: f64) -> bool {
 }
 
 fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
-            continuation: impl Fn(&Sender<Message>, &mut db::DbConn, &mut RegulationToken) -> ()) -> () {
+            continuation: impl Fn(&Sender<Message>, &mut db::DbConn, &Client, &mut RegulationToken) -> ()) -> () {
     let mut conn = match db::DbConn::new() {
             Err(e) => {
                 tx.send(Message::Err(e)).unwrap();
@@ -65,6 +66,7 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
             },
             Ok(cn) => cn
     };
+    let client = Client::new();
     loop {
         // check if we got stop command
         match rx.try_recv() {
@@ -81,11 +83,11 @@ fn with_cont(tx: Sender<Message>, rx: Receiver<Order>, mut tkn: RegulationToken,
             break;
         }
         thread::sleep(tkn.delay());
-        continuation(&tx, &mut conn, &mut tkn);
+        continuation(&tx, &mut conn, &client, &mut tkn);
     }
 }
 
-fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut RegulationToken) -> () {
+fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client, tkn: &mut RegulationToken) -> () {
     // check if we potentially has a work to do
     let number_of_games = match conn.get_number_of_unstable_games() {
         Err(e) => {
@@ -125,7 +127,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
     tx.send(Message::Info(game.clone())).unwrap();
     // ask for user ratings
     let mut avg = Avg::new();
-    for page in bgg::get_user_ratings(&game) {
+    for page in bgg::UserIterator::new(&client, game.id) {
         let users = match page {
             Err(e) => {
                 tx.send(Message::Notification(e)).unwrap();
@@ -172,7 +174,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut Regula
     };
 }
 
-fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, tkn: &mut RegulationToken) -> () {
+fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client, tkn: &mut RegulationToken) -> () {
     let user = match conn.get_unstable_user() {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
@@ -218,6 +220,7 @@ pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Res
     let (main_tx1, games_rx) = mpsc::channel();
     let (main_tx2, users_rx) = mpsc::channel();
 
+    // TODO: move to with_cont
     // try to balance every game
     let delay_step = Duration::from_millis(config.delay as u64);
     let prevail_for = Duration::from_millis(config.prevail_for as u64);
