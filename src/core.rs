@@ -172,6 +172,8 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
                 Ok(Some(false)) => {} // can't trust, ignore
             }
         }
+        // Prevent 429 Too many requests
+        thread::sleep(tkn.delay());
     }
     // every user was stable
     // save average and number of users
@@ -225,6 +227,10 @@ fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
 }
 
 pub fn stabilize(config: Config, running: Arc<AtomicBool>, mut progress: impl FnMut(Message) -> ()) -> Result<(), Error> {
+    // NB. Errors from mpsc channels use unwrap(). If channels fail,
+    // the core of the programm is severely damaged, panic is only option. 
+    
+    
     // First comm network
     let (games_tx, main_rx) = mpsc::channel();
     let users_tx = mpsc::Sender::clone(&games_tx);

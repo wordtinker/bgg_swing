@@ -59,15 +59,17 @@ fn pull_games() -> Result<(), Error> {
 }
 
 fn stabilize() -> Result<(), Error> {
-    //
+    // Cancellation token
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
+    // Bind cancellation token with ctrl+c command
     ctrlc::set_handler(move || {
         r.store(false, Ordering::SeqCst);
     })?;
-    //
+    // Load config
     let config = core::config()?;
     println!("Start balancing.");
+    // Prettify output a bit
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let mut seen_users: u32 = 0;
     let mut balanced_games: u32 = 0;
