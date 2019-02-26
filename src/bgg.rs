@@ -14,8 +14,8 @@ pub struct UserIterator<'a> {
 }
 
 impl<'a> UserIterator<'a> {
-    pub fn new(client: &'a Client, game_id: u32) -> UserIterator {
-        UserIterator {client, game_id, page: 0 }
+    pub fn new(client: &'a Client, game_id: u32, page: u32) -> UserIterator {
+        UserIterator {client, game_id, page }
     }
 }
 
@@ -23,9 +23,8 @@ impl<'a> Iterator for UserIterator<'a> {
     type Item = Result<Vec<(User, f64)>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.page += 1;
         // get users for a game
-        match get_users_from(self.client, self.game_id, self.page) {
+        let result = match get_users_from(self.client, self.game_id, self.page) {
             Ok(users) => {
                 if users.is_empty() {
                     None
@@ -34,7 +33,9 @@ impl<'a> Iterator for UserIterator<'a> {
                 }
             },
             Err(e) => Some(Err(e))
-        }
+        };
+        self.page += 1;
+        result
     }
 }
 

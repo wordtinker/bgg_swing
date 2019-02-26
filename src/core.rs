@@ -112,15 +112,15 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
         return;
     }
     // find a game to work with
-    let game = match conn.get_unstable_game() {
+    let gamebox = match conn.get_unstable_game() {
         Err(e) => {
             tx.send(Message::Err(e)).unwrap();
             return;
         },
-        Ok(g) => g
+        Ok(gb) => gb
     };
     // if game is None, there is no more unstable games
-    let mut game = match game {
+    let (mut game, start_page) = match gamebox {
         None => {
             tx.send(Message::Stabilized).unwrap();
             return;
@@ -130,7 +130,16 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
     tx.send(Message::Info(game.clone())).unwrap();
     // ask for user ratings
     let mut avg = Avg::new();
-    for page in bgg::UserIterator::new(&client, game.id) {
+    for (i, page) in bgg::UserIterator::new(&client, game.id, start_page).enumerate() {
+        // save new page to db
+        let new_page = start_page + i as u32;
+        match conn.update_page(&game, new_page) {
+            Err(e) => {
+                tx.send(Message::Err(e)).unwrap();
+                return;
+            },
+            Ok(_) => {}
+        };
         let users = match page {
             Err(e) => {
                 tx.send(Message::Notification(e)).unwrap();
