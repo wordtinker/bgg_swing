@@ -38,8 +38,11 @@ fn make_report() -> Result<(), Error> {
     if games.is_empty() {
         println!("Game list is not stable enough.");
     } else {
+        println!("Id\tName\tRating\tVotes\tGeek Rating\tAvg BGG Rating\tBGG Votes");
         for game in games {
-            println!("{}\t{}\t{:.2}\t{}", game.id, game.name, game.rating, game.votes);
+            println!("{}\t{}\t{:.2}\t{}\t{}\t{}\t{}",
+                game.id, game.name, game.rating, game.votes,
+                game.bgg_geek_rating, game.bgg_avg_rating, game.bgg_num_votes);
         }
     }
     Ok(())

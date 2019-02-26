@@ -121,21 +121,51 @@ fn get_games_from(client: &Client, page: u32, user_limit: u32) -> Result<Vec<Gam
 }
 
 fn filter_games(doc: Document) -> Result<Vec<Game>, Error> {
-    let links = doc
+    let rows = doc
         .find(Class("collection_table"))
-        .flat_map(|t| t.find(Class("collection_objectname")))
-        .flat_map(|c| c.find(Name("div")))
-        .flat_map(|div| div.find(Name("a")));
+        .flat_map(|c| c.find(Name("tr"))).skip(1); // skip header
 
     let mut games = Vec::new();
-    for link in links {
-        match link.attr("href") {
-            Some(href) => {
-                let id = href_to_id(href)?;
-                games.push(Game::new(id, link.text()));
+    for row in rows {
+        let mut r = row.find(Name("td"));
+        let link = r.nth(2);
+        let bgg_geek_rating = r.nth(0);
+        let bgg_avg_rating = r.nth(0);
+        let bgg_num_votes = r.nth(0);
+
+        let link = match link {
+            Some(node) => match node.find(Name("a")).nth(0) {
+                Some(l) => l,
+                None => bail!("Could not find game link.")
             },
-            _ => bail!("Could not find game id.")
+            None => bail!("Could not find game link.") 
         };
+        let id = match link.attr("href") {
+            Some(href) => href_to_id(href)?,
+            None => bail!("Could not find game id.")
+        };
+        let bgg_geek_rating = match bgg_geek_rating{
+            Some(node) => node.text().trim().parse::<f64>()?,
+            None => bail!("Could not find geek rating.")
+        };
+        let bgg_avg_rating = match bgg_avg_rating{
+            Some(node) => node.text().trim().parse::<f64>()?,
+            None => bail!("Could not find avg rating.")
+        };
+        let bgg_num_votes = match bgg_num_votes{
+            Some(node) => node.text().trim().parse::<u32>()?,
+            None => bail!("Could not find num votes.")
+        };
+
+        games.push(Game {
+            id,
+            name: link.text(),
+            rating: 0.0,
+            votes: 0,
+            bgg_num_votes,
+            bgg_geek_rating,
+            bgg_avg_rating
+        });
     }
     Ok(games)
 }

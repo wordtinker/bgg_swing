@@ -16,7 +16,10 @@ pub fn initialize() -> Result<(), Error> {
             rating real,
             num_votes integer,
             updated datetime,
-            stable integer
+            stable integer,
+            bgg_num_votes,
+            bgg_geek_rating,
+            bgg_avg_rating
          )",
         NO_PARAMS,
     )?;
@@ -43,9 +46,9 @@ pub fn add_games(games: Vec<Game>) -> Result<(), Error> {
     let tx = conn.transaction()?;
     let now = Local::now();
     let zero = 0;
-    for game in  games {
-        tx.execute("insert into games (id, name, updated, stable) values (?1, ?2, ?3, ?4)",
-            &[&game.id as &ToSql, &game.name, &now.to_string(), &zero])?;
+    for game in games {
+        tx.execute("insert into games (id, name, updated, stable, bgg_num_votes, bgg_geek_rating, bgg_avg_rating) values (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            &[&game.id as &ToSql, &game.name, &now.to_string(), &zero, &game.bgg_num_votes, &game.bgg_geek_rating, &game.bgg_avg_rating])?;
     }
     tx.commit()?;
     Ok(())
@@ -53,13 +56,16 @@ pub fn add_games(games: Vec<Game>) -> Result<(), Error> {
 
 pub fn get_all_games() -> Result<Vec<Game>, Error> {
     let conn = Connection::open(DB_FILE_NAME)?;
-    let mut stmt = conn.prepare("SELECT id, name, rating, num_votes FROM games order by rating desc")?;
+    let mut stmt = conn.prepare("SELECT id, name, rating, num_votes, bgg_num_votes, bgg_geek_rating, bgg_avg_rating FROM games order by rating desc")?;
     let games_iter = stmt
         .query_map(NO_PARAMS, |row| Game {
             id: row.get(0),
             name: row.get(1),
             rating: row.get(2),
-            votes: row.get(3)
+            votes: row.get(3),
+            bgg_num_votes: row.get(4),
+            bgg_geek_rating: row.get(5),
+            bgg_avg_rating: row.get(6)
         })?;
     let mut games = Vec::new();
     for game in games_iter {
