@@ -17,9 +17,9 @@ pub fn initialize() -> Result<(), Error> {
             num_votes integer,
             updated datetime,
             stable integer,
-            bgg_num_votes,
-            bgg_geek_rating,
-            bgg_avg_rating
+            bgg_num_votes integer,
+            bgg_geek_rating real,
+            bgg_avg_rating real
          )",
         NO_PARAMS,
     )?;
