@@ -2,7 +2,7 @@ use rusqlite::{Connection, NO_PARAMS, OpenFlags};
 use rusqlite::types::ToSql;
 use failure::{Error, bail};
 use chrono::Local;
-use crate::lib::{Game, User};
+use crate::lib::{Game, User, Temp};
 
 const DB_FILE_NAME: &str = "top.db";
 
@@ -20,7 +20,9 @@ pub fn initialize() -> Result<(), Error> {
             bgg_num_votes integer,
             bgg_geek_rating real,
             bgg_avg_rating real,
-            page integer
+            page integer,
+            temp_n integer,
+            temp_r real
          )",
         NO_PARAMS,
     )?;
@@ -47,7 +49,8 @@ pub fn add_games(games: Vec<Game>) -> Result<(), Error> {
     let tx = conn.transaction()?;
     let now = Local::now();
     for game in games {
-        tx.execute("insert into games (id, name, updated, stable, bgg_num_votes, bgg_geek_rating, bgg_avg_rating, page) values (?1, ?2, ?3, 0, ?4, ?5, ?6, 1)",
+        tx.execute("insert into games (id, name, updated, stable, bgg_num_votes, bgg_geek_rating, bgg_avg_rating, page, temp_n, temp_r) 
+        values (?1, ?2, ?3, 0, ?4, ?5, ?6, 1, 0, 0)",
             &[&game.id as &ToSql, &game.name, &now.to_string(), &game.bgg_num_votes, &game.bgg_geek_rating, &game.bgg_avg_rating])?;
     }
     tx.commit()?;
@@ -118,15 +121,15 @@ impl DbConn {
         Ok(count)
     }
 
-    pub fn get_unstable_game(&self) -> Result<Option<(Game, u32)>, Error> {
-        let mut stmt = self.conn.prepare("select id, name, page from games where not stable order by random() limit 1")?;
-        let gamebox: Option<(Game, u32)> = match stmt.query_row(NO_PARAMS,
-                |r| (Game::new(r.get(0), r.get(1)), r.get(2))) {
+    pub fn get_unstable_game(&self) -> Result<Option<(Game, Temp)>, Error> {
+        let mut stmt = self.conn.prepare("select id, name, page, temp_n, temp_r from games where not stable order by random() limit 1")?;
+        let gamebox: Option<(Game, Temp)> = match stmt.query_row(NO_PARAMS,
+                |r| (Game::new(r.get(0), r.get(1)), Temp::new(r.get(2), r.get(3), r.get(4)))) {
             Ok(req) => Some(req),
             Err(rusqlite::Error::QueryReturnedNoRows) => None,
             Err(e) => bail!(e)
         };
-        Ok(gamebox) 
+        Ok(gamebox)
     }
 
     pub fn add_users(&mut self, users: &[&User]) -> Result<(), Error> {
@@ -162,9 +165,9 @@ impl DbConn {
         }
     }
 
-    pub fn update_page(&self, game: &Game, new_page: u32) -> Result<(), Error> {
-        match self.conn.execute("UPDATE games SET page = ?1 WHERE id = ?2",
-                &[&new_page as &ToSql, &game.id]) {
+    pub fn update_page(&self, game: &Game, new_page: u32, temp_n: u32, temp_r: f64) -> Result<(), Error> {
+        match self.conn.execute("UPDATE games SET page = ?1, temp_n = ?2, temp_r = ?3 WHERE id = ?4",
+                &[&new_page as &ToSql, &temp_n, &temp_r, &game.id]) {
             Ok(_) => Ok(()),
             Err(err) => bail!(err)
         }

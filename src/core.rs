@@ -120,7 +120,7 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
         Ok(gb) => gb
     };
     // if game is None, there is no more unstable games
-    let (mut game, start_page) = match gamebox {
+    let (mut game, temp) = match gamebox {
         None => {
             tx.send(Message::Stabilized).unwrap();
             return;
@@ -129,11 +129,11 @@ fn stabilize_games(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
     };
     tx.send(Message::Info(game.clone())).unwrap();
     // ask for user ratings
-    let mut avg = Avg::new();
-    for (i, page) in bgg::UserIterator::new(&client, game.id, start_page).enumerate() {
+    let mut avg = Avg::new(temp.n, temp.r);
+    for (i, page) in bgg::UserIterator::new(&client, game.id, temp.page).enumerate() {
         // save new page to db
-        let new_page = start_page + i as u32;
-        match conn.update_page(&game, new_page) {
+        let new_page = temp.page + i as u32;
+        match conn.update_page(&game, new_page, avg.n(), avg.result()) {
             Err(e) => {
                 tx.send(Message::Err(e)).unwrap();
                 return;
@@ -337,8 +337,8 @@ struct Avg {
 }
 
 impl Avg {
-    fn new() -> Avg {
-        Avg {n: 0, val: 0.0}
+    fn new(n: u32, val: f64) -> Avg {
+        Avg {n, val}
     }
     fn add(&mut self, nmbr: f64) -> () {
         self.n += 1;

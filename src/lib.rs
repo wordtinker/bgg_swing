@@ -17,3 +17,15 @@ impl Game {
 }
 
 pub type User = String; // user name
+
+pub struct Temp {
+    pub page: u32,
+    pub n: u32,
+    pub r: f64
+}
+
+impl Temp {
+    pub fn new(page: u32, n: u32, r: f64) -> Temp {
+        Temp { page, n, r }
+    }
+}
