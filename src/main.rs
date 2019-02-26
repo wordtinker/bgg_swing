@@ -11,6 +11,9 @@ use failure::Error;
 use exitfailure::ExitFailure;
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use ctrlc;
 
 fn main() -> Result<(), ExitFailure> {
     let cli = Cli::from_args();
@@ -53,11 +56,19 @@ fn pull_games() -> Result<(), Error> {
 }
 
 fn stabilize() -> Result<(), Error> {
+    //
+    let running = Arc::new(AtomicBool::new(true));
+    let r = running.clone();
+    ctrlc::set_handler(move || {
+        r.store(false, Ordering::SeqCst);
+    })?;
+    //
     let config = core::config()?;
     println!("Start balancing.");
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
     let mut seen_users: u32 = 0;
-    core::stabilize(config, |m| match m {
+    let mut balanced_games: u32 = 0;
+    core::stabilize(config, running, |m| match m {
         Message::UserProgress(_) => {
             seen_users += 1;
             if seen_users % 50 == 0 {
@@ -66,6 +77,7 @@ fn stabilize() -> Result<(), Error> {
             };
         },
         Message::GameProgress(game) => {
+            balanced_games += 1;
             stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
             writeln!(&mut stdout, "{} is balanced.", game.name).unwrap();
         },
@@ -79,7 +91,7 @@ fn stabilize() -> Result<(), Error> {
         },
         _ => {} 
     })?;
-    println!("Seen {} users today.", seen_users);
+    println!("Seen {} users today and {} balanced games.", seen_users, balanced_games);
     println!("Finished balancing.");
     Ok(())
 }

@@ -10,6 +10,8 @@ use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver, TryRecvError};
 use std::time::Duration;
 use reqwest::Client;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 const CONFIG_FILE_NAME: &str = "app.config";
 const LOWER_BOUND: f64 = 2.0;
@@ -213,7 +215,7 @@ fn stabilize_users(tx: &Sender<Message>, conn: &mut db::DbConn, client: &Client,
     }
 }
 
-pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Result<(), Error> {
+pub fn stabilize(config: Config, running: Arc<AtomicBool>, mut progress: impl FnMut(Message) -> ()) -> Result<(), Error> {
     // First comm network
     let (games_tx, main_rx) = mpsc::channel();
     let users_tx = mpsc::Sender::clone(&games_tx);
@@ -235,6 +237,7 @@ pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Res
     // This will block main until iterator yields None
     let mut result: Result<(), Error> = Ok(());
     for received in main_rx {
+        // handle messages
         match received {
             Message::Err(e) => {
                 main_tx1.send(Order::Stop).unwrap_or_default();
@@ -246,6 +249,11 @@ pub fn stabilize(config: Config, mut progress: impl FnMut(Message) -> ()) -> Res
                 main_tx2.send(Order::Stop).unwrap_or_default();
             },
             msg => progress(msg)
+        }
+        // handle stop signal
+        if !running.load(Ordering::SeqCst) {
+            main_tx1.send(Order::Stop).unwrap_or_default();
+            main_tx2.send(Order::Stop).unwrap_or_default();
         }
     }
     result
